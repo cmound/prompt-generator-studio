@@ -1,7 +1,7 @@
 // Created Characters: local character library used for Existing character autocomplete.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CreatedCharacter } from '../db/types'
-import { listCharacters, upsertCharacter, deleteCharacter } from '../db/characterRepo'
+import { list, upsert, remove, exportJson, importJson } from '../db/characterRepo'
 
 interface CreatedCharactersPanelProps {
   onUseInBuilder?: (character: CreatedCharacter) => void
@@ -22,15 +22,27 @@ export default function CreatedCharactersPanel({ onUseInBuilder }: CreatedCharac
   const [formAppearsGuide, setFormAppearsGuide] = useState('')
   const [formCannotUseGuide, setFormCannotUseGuide] = useState('')
   const [formNotes, setFormNotes] = useState('')
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const loadCharacters = async () => {
-    const chars = await listCharacters({ query: searchQuery })
-    setCharacters(chars)
+    const chars = await list()
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      setCharacters(chars.filter((c) => c.tag.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)))
+    } else {
+      setCharacters(chars)
+    }
   }
 
   useEffect(() => {
     loadCharacters()
   }, [searchQuery])
+
+  useEffect(() => {
+    const handler = () => loadCharacters()
+    window.addEventListener('pgs:characters-updated', handler)
+    return () => window.removeEventListener('pgs:characters-updated', handler)
+  }, [])
 
   const resetForm = () => {
     setFormTag('')
@@ -89,7 +101,7 @@ export default function CreatedCharactersPanel({ onUseInBuilder }: CreatedCharac
     if (!validateForm()) return
 
     try {
-      await upsertCharacter({
+      await upsert({
         id: selectedChar?.id,
         tag: formTag.trim(),
         name: formName.trim(),
@@ -100,6 +112,7 @@ export default function CreatedCharactersPanel({ onUseInBuilder }: CreatedCharac
         notes: formNotes.trim() || undefined,
       })
 
+      window.dispatchEvent(new CustomEvent('pgs:characters-updated'))
       await loadCharacters()
       resetForm()
     } catch (error) {
@@ -111,13 +124,46 @@ export default function CreatedCharactersPanel({ onUseInBuilder }: CreatedCharac
     if (!confirm(`Delete character ${char.tag}?`)) return
 
     try {
-      await deleteCharacter(char.id)
+      await remove(char.tag)
+      window.dispatchEvent(new CustomEvent('pgs:characters-updated'))
       await loadCharacters()
       if (selectedChar?.id === char.id) {
         resetForm()
       }
     } catch (error) {
       console.error('Failed to delete character:', error)
+    }
+  }
+
+  const handleExport = async () => {
+    const data = await exportJson()
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'created-characters.json'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      await importJson(text)
+      window.dispatchEvent(new CustomEvent('pgs:characters-updated'))
+      await loadCharacters()
+    } catch (error) {
+      setErrors({ general: error instanceof Error ? error.message : 'Failed to import' })
+    } finally {
+      event.target.value = ''
     }
   }
 
@@ -157,21 +203,60 @@ export default function CreatedCharactersPanel({ onUseInBuilder }: CreatedCharac
           }}
         />
 
-        <button
-          onClick={() => resetForm()}
-          style={{
-            padding: '0.5rem',
-            background: 'var(--accent)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '0.85rem',
-            fontWeight: 500,
-          }}
-        >
-          + Create New Character
-        </button>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => resetForm()}
+              style={{
+                padding: '0.5rem',
+                background: 'var(--accent)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: 500,
+              }}
+            >
+              + Create New Character
+            </button>
+
+            <button
+              onClick={handleExport}
+              style={{
+                padding: '0.5rem 0.75rem',
+                background: 'var(--panel)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+              }}
+            >
+              Export
+            </button>
+
+            <button
+              onClick={handleImportClick}
+              style={{
+                padding: '0.5rem 0.75rem',
+                background: 'var(--panel)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+              }}
+            >
+              Import
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              style={{ display: 'none' }}
+              onChange={handleImport}
+            />
+          </div>
 
         <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {characters.length === 0 ? (

@@ -1,137 +1,189 @@
-import { db } from './db'
 import type { CreatedCharacter } from './types'
 
-export async function listCharacters(opts?: {
-  query?: string
-  sortBy?: 'updatedAt' | 'tag'
-}): Promise<CreatedCharacter[]> {
-  let collection = db.createdCharacters.orderBy('updatedAt').reverse()
+const STORAGE_KEY = 'pgs.createdCharacters.v1'
 
-  let results = await collection.toArray()
+type StoredCharacter = CreatedCharacter
 
-  // Filter by query (search tag or name)
-  if (opts?.query) {
-    const lowerQuery = opts.query.toLowerCase()
-    results = results.filter(
-      (c) =>
-        c.tag.toLowerCase().includes(lowerQuery) ||
-        c.name.toLowerCase().includes(lowerQuery)
-    )
+const dispatchUpdated = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('pgs:characters-updated'))
   }
+}
 
-  // Sort
-  if (opts?.sortBy === 'tag') {
-    results.sort((a, b) => a.tag.localeCompare(b.tag))
+const read = (): StoredCharacter[] => {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((c) => c && typeof c.tag === 'string' && typeof c.name === 'string')
+  } catch (err) {
+    console.error('Failed to read characters from storage', err)
+    return []
   }
-
-  return results
 }
 
-export async function getCharacterById(id: string): Promise<CreatedCharacter | undefined> {
-  return db.createdCharacters.get(id)
+const write = (chars: StoredCharacter[]) => {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(chars))
 }
 
-export async function getCharacterByTag(tag: string): Promise<CreatedCharacter | null> {
-  const normalizedTag = tag.toLowerCase()
-  const all = await db.createdCharacters.toArray()
-  return all.find((c) => c.tag.toLowerCase() === normalizedTag) || null
+const normalizeTag = (tag: string): string => {
+  const trimmed = tag.trim().replace(/^@+/, '')
+  return trimmed ? `@${trimmed}` : ''
 }
 
-export async function searchCharacters(query: string): Promise<CreatedCharacter[]> {
-  const normalized = query.trim().toLowerCase()
-  if (!normalized) return []
+const sortCharacters = (chars: StoredCharacter[]): StoredCharacter[] => {
+  return [...chars].sort((a, b) => a.tag.toLowerCase().localeCompare(b.tag.toLowerCase()))
+}
 
-  const isTagQuery = normalized.startsWith('@')
-  const normalizedNameQuery = isTagQuery ? normalized.slice(1) : normalized
-  const all = await db.createdCharacters.toArray()
+export async function list(): Promise<StoredCharacter[]> {
+  return sortCharacters(read())
+}
+
+export async function getCharacterByTag(tag: string): Promise<StoredCharacter | null> {
+  const normalized = normalizeTag(tag).toLowerCase()
+  if (!normalized) return null
+  const all = read()
+  return all.find((c) => c.tag.toLowerCase() === normalized) || null
+}
+
+export async function searchCharacters(query: string): Promise<StoredCharacter[]> {
+  const normalizedRaw = query.trim().toLowerCase()
+  if (!normalizedRaw) return []
+
+  const normalizedWithoutAt = normalizedRaw.startsWith('@') ? normalizedRaw.slice(1) : normalizedRaw
+  const all = read()
 
   const ranked = all
     .map((character) => {
       const tag = character.tag.toLowerCase()
       const name = character.name.toLowerCase()
 
-      const matchesTagPrefix = tag.startsWith(normalized)
-      const matchesTagContains = tag.includes(normalized)
-      const matchesName = normalizedNameQuery ? name.includes(normalizedNameQuery) : false
+      const matchesTagPrefix = tag.startsWith(normalizedRaw) || tag.startsWith(`@${normalizedWithoutAt}`)
+      const matchesTagContains = tag.includes(normalizedRaw) || tag.includes(normalizedWithoutAt)
+      const matchesName = normalizedWithoutAt ? name.includes(normalizedWithoutAt) : false
 
       if (!matchesTagPrefix && !matchesTagContains && !matchesName) return null
 
-      // Prefer tag prefix, then name contains, then tag contains (or reversed if tag query)
       let score = 3
       if (matchesTagPrefix) score = 0
-      else if (isTagQuery && matchesTagContains) score = 1
       else if (matchesName) score = 1
       else score = 2
 
       return { character, score }
     })
-    .filter((entry): entry is { character: CreatedCharacter; score: number } => Boolean(entry))
+    .filter((entry): entry is { character: StoredCharacter; score: number } => Boolean(entry))
     .sort((a, b) => a.score - b.score || a.character.tag.localeCompare(b.character.tag))
-    .slice(0, 8)
+    .slice(0, 12)
 
   return ranked.map((entry) => entry.character)
 }
 
-// Backward compatibility for older imports
+// Backward compatibility
 export const searchCharactersByTag = searchCharacters
 
-export async function upsertCharacter(
-  character: Omit<CreatedCharacter, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
+export async function upsert(
+  character: Omit<StoredCharacter, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
 ): Promise<string> {
   const now = Date.now()
+  const tagNormalized = normalizeTag(character.tag)
+  if (!tagNormalized) throw new Error('Tag is required')
+  if (tagNormalized.includes(' ')) throw new Error('Tag cannot contain spaces')
+  if (!character.name?.trim()) throw new Error('Name is required')
+  if (character.appearsGuide && character.appearsGuide.length > 800) throw new Error('Appears guide cannot exceed 800 characters')
+  if (character.cannotUseGuide && character.cannotUseGuide.length > 800) throw new Error('Cannot use guide cannot exceed 800 characters')
 
-  // Validate tag format
-  if (!character.tag.startsWith('@')) {
-    throw new Error('Tag must start with @')
+  const all = read()
+  const lowerTag = tagNormalized.toLowerCase()
+  const existingIndex = all.findIndex((c) => c.tag.toLowerCase() === lowerTag)
+
+  if (existingIndex >= 0 && character.id && all[existingIndex].id !== character.id) {
+    throw new Error('A character with this tag already exists')
   }
-
-  if (character.tag.includes(' ')) {
-    throw new Error('Tag cannot contain spaces')
-  }
-
-  // Validate max lengths
-  if (character.appearsGuide && character.appearsGuide.length > 800) {
-    throw new Error('Appears guide cannot exceed 800 characters')
-  }
-
-  if (character.cannotUseGuide && character.cannotUseGuide.length > 800) {
-    throw new Error('Cannot use guide cannot exceed 800 characters')
-  }
-
-  // Check for duplicate tag (case-insensitive)
-  const existing = await getCharacterByTag(character.tag)
-  if (existing && existing.id !== character.id) {
+  if (existingIndex >= 0 && !character.id) {
     throw new Error('A character with this tag already exists')
   }
 
-  if (character.id) {
-    // Update existing
-    const existingChar = await db.createdCharacters.get(character.id)
-    if (!existingChar) {
-      throw new Error('Character not found')
+  if (existingIndex >= 0) {
+    const existing = all[existingIndex]
+    const updated: StoredCharacter = {
+      ...existing,
+      ...character,
+      tag: tagNormalized,
+      updatedAt: now,
     }
-
-    await db.createdCharacters.update(character.id, {
-      ...character,
-      updatedAt: now,
-    })
-
-    return character.id
-  } else {
-    // Create new
-    const id = crypto.randomUUID()
-    const newChar: CreatedCharacter = {
-      ...character,
-      id,
-      createdAt: now,
-      updatedAt: now,
-    } as CreatedCharacter
-
-    await db.createdCharacters.put(newChar)
-    return id
+    all[existingIndex] = updated
+    write(all)
+    dispatchUpdated()
+    return updated.id
   }
+
+  const newId = crypto.randomUUID()
+  const newChar: StoredCharacter = {
+    ...character,
+    id: newId,
+    tag: tagNormalized,
+    createdAt: now,
+    updatedAt: now,
+  } as StoredCharacter
+
+  all.push(newChar)
+  write(all)
+  dispatchUpdated()
+  return newId
 }
 
-export async function deleteCharacter(id: string): Promise<void> {
-  await db.createdCharacters.delete(id)
+export async function remove(tag: string): Promise<void> {
+  const normalized = normalizeTag(tag).toLowerCase()
+  if (!normalized) return
+  const filtered = read().filter((c) => c.tag.toLowerCase() !== normalized)
+  write(filtered)
+  dispatchUpdated()
+}
+
+export async function clear(): Promise<void> {
+  write([])
+  dispatchUpdated()
+}
+
+export async function exportJson(): Promise<string> {
+  return JSON.stringify(sortCharacters(read()), null, 2)
+}
+
+export async function importJson(json: string): Promise<void> {
+  let parsed: any
+  try {
+    parsed = JSON.parse(json)
+  } catch (err) {
+    throw new Error('Invalid JSON file')
+  }
+
+  if (!Array.isArray(parsed)) throw new Error('Invalid format: expected an array')
+
+  const incoming: StoredCharacter[] = []
+  for (const item of parsed) {
+    if (!item || typeof item.tag !== 'string' || typeof item.name !== 'string') continue
+    const tag = normalizeTag(item.tag)
+    if (!tag) continue
+    incoming.push({
+      ...item,
+      tag,
+      id: item.id || crypto.randomUUID(),
+      createdAt: item.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    })
+  }
+
+  const existing = read()
+  const merged = [...existing]
+  incoming.forEach((char) => {
+    const idx = merged.findIndex((c) => c.tag.toLowerCase() === char.tag.toLowerCase())
+    if (idx >= 0) merged[idx] = char
+    else merged.push(char)
+  })
+
+  write(sortCharacters(merged))
+  dispatchUpdated()
 }

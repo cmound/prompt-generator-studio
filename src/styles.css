@@ -275,6 +275,12 @@ select:focus-visible {
   color: #111827;
 }
 
+.pgs-typeahead__item--empty {
+  border-bottom: none;
+  color: #9ca3af;
+  font-style: italic;
+}
+
 .pgs-typeahead__item * {
   color: inherit;
 }

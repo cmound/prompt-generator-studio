@@ -26,6 +26,8 @@ export default function CharacterTypeahead({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [hasQuery, setHasQuery] = useState(false)
+  const [repoVersion, setRepoVersion] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -40,21 +42,23 @@ export default function CharacterTypeahead({
 
       const query = value.trim()
       if (query.length <= 1) {
+        setHasQuery(false)
         setSuggestions([])
         setShowSuggestions(false)
         setSelectedIndex(-1)
         return
       }
 
+      setHasQuery(true)
       const results = await searchCharacters(query)
       setSuggestions(results)
-      setShowSuggestions(results.length > 0)
+      setShowSuggestions(true)
       setSelectedIndex(results.length ? 0 : -1)
     }
 
     const debounce = setTimeout(loadSuggestions, 200)
     return () => clearTimeout(debounce)
-  }, [value, existingEnabled])
+  }, [value, existingEnabled, repoVersion])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -93,8 +97,21 @@ export default function CharacterTypeahead({
     }
   }, [showSuggestions, value])
 
+  useEffect(() => {
+    const handler = () => setRepoVersion((v) => v + 1)
+    window.addEventListener('pgs:characters-updated', handler)
+    return () => window.removeEventListener('pgs:characters-updated', handler)
+  }, [])
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showSuggestions || suggestions.length === 0) return
+    if (!showSuggestions) return
+    if (suggestions.length === 0) {
+      if (e.key === 'Escape') {
+        setShowSuggestions(false)
+        setSelectedIndex(-1)
+      }
+      return
+    }
 
     switch (e.key) {
       case 'ArrowDown':
@@ -139,7 +156,7 @@ export default function CharacterTypeahead({
   }
 
   const dropdown =
-    showSuggestions && suggestions.length > 0 && dropdownRect
+    showSuggestions && dropdownRect
       ? createPortal(
           <div
             ref={dropdownRef}
@@ -177,6 +194,11 @@ export default function CharacterTypeahead({
                 )}
               </div>
             ))}
+            {hasQuery && suggestions.length === 0 && (
+              <div className="pgs-typeahead__item pgs-typeahead__item--empty" role="option" aria-selected="false">
+                No matches
+              </div>
+            )}
           </div>,
           document.body
         )

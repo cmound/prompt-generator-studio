@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { upsertCharacter } from '../db/characterRepo'
+import { upsert } from '../db/characterRepo'
 
 interface SaveCharacterModalProps {
   onClose: () => void
@@ -55,7 +55,7 @@ export default function SaveCharacterModal({
 
     setSaving(true)
     try {
-      await upsertCharacter({
+      await upsert({
         tag: tag.trim(),
         name: name.trim(),
         look: look.trim() || undefined,
@@ -64,6 +64,8 @@ export default function SaveCharacterModal({
         cannotUseGuide: cannotUseGuide.trim() || undefined,
         notes: notes.trim() || undefined,
       })
+
+      window.dispatchEvent(new CustomEvent('pgs:characters-updated'))
 
       setSuccess(true)
       setTimeout(() => {
