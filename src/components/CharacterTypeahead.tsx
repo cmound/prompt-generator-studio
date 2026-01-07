@@ -145,19 +145,15 @@ export default function CharacterTypeahead({
             ref={dropdownRef}
             id="character-suggestions"
             role="listbox"
+            className="pgs-typeahead pgs-typeahead__list"
             style={{
               position: 'fixed',
               top: dropdownRect.top,
               left: dropdownRect.left,
               width: dropdownRect.width,
               marginTop: '2px',
-              background: 'var(--panel)',
-              border: '1px solid var(--border)',
-              borderRadius: '4px',
               maxHeight: '220px',
-              overflowY: 'auto',
               zIndex: 99999,
-              boxShadow: '0 8px 16px rgba(0,0,0,0.35)',
             }}
           >
             {suggestions.map((char, idx) => (
@@ -167,26 +163,16 @@ export default function CharacterTypeahead({
                 aria-selected={idx === selectedIndex}
                 onClick={() => handleSelect(char)}
                 onMouseEnter={() => setSelectedIndex(idx)}
-                style={{
-                  padding: '0.55rem 0.6rem',
-                  cursor: 'pointer',
-                  background: idx === selectedIndex ? '#facc15' : 'transparent',
-                  color: idx === selectedIndex ? '#111827' : 'var(--text)',
-                  fontSize: '0.85rem',
-                  borderBottom: idx < suggestions.length - 1 ? '1px solid var(--border)' : 'none',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr',
-                  gap: '0.15rem',
-                }}
+                className={`pgs-typeahead__item${idx === selectedIndex ? ' is-active' : ''}`}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
-                  <span style={{ fontWeight: 600 }}>{char.tag}</span>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>{char.name}</span>
+                <div className="pgs-typeahead__row">
+                  <span className="pgs-typeahead__tag">{char.tag}</span>
+                  <span className="pgs-typeahead__name">{char.name}</span>
                 </div>
                 {(char.look || char.outfit) && (
-                  <div style={{ fontSize: '0.75rem', opacity: 0.65, display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                  <div className="pgs-typeahead__meta">
                     {char.look && <span>{char.look}</span>}
-                    {char.outfit && <span style={{ opacity: 0.75 }}>• {char.outfit}</span>}
+                    {char.outfit && <span>• {char.outfit}</span>}
                   </div>
                 )}
               </div>
@@ -210,7 +196,7 @@ export default function CharacterTypeahead({
         placeholder={placeholder}
         disabled={disabled}
         style={{
-          background: isSelected ? '#facc15' : 'var(--bg)',
+          background: isSelected ? '#FFD84D' : 'var(--bg)',
           color: isSelected ? '#111827' : 'var(--text)',
           border: isSelected ? '1px solid #d97706' : '1px solid var(--border)',
           borderRadius: '4px',

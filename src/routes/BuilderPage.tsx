@@ -387,6 +387,15 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
     setCharacters(updated)
   }
 
+  const autoSizeTextarea = (el: HTMLTextAreaElement | null) => {
+    if (!el) return
+    el.style.height = 'auto'
+    const maxHeight = 4 * 28 // up to ~4 rows
+    const newHeight = Math.min(el.scrollHeight, maxHeight)
+    el.style.height = `${newHeight}px`
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  }
+
   const handleUseCreatedCharacterInBuilder = (character: CreatedCharacter) => {
     // Add a new character slot if needed
     if (numCharacters === 0) {
@@ -1602,9 +1611,9 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                       <col style={{ width: '80px' }} />
                       <col style={{ width: '160px' }} />
                       <col style={{ width: '180px' }} />
-                      <col style={{ width: '240px' }} />
-                      <col style={{ width: '220px' }} />
-                      <col style={{ width: '240px' }} />
+                      <col style={{ width: '245px' }} />
+                      <col style={{ width: '225px' }} />
+                      <col style={{ width: '245px' }} />
                     </colgroup>
                     <thead>
                       <tr>
@@ -1702,65 +1711,77 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                             />
                           </td>
                           <td style={{ padding: '0.5rem' }}>
-                            <input
-                              type="text"
+                            <textarea
                               value={char.look}
                               onChange={(e) => {
+                                autoSizeTextarea(e.currentTarget)
                                 const updated = [...characters]
                                 updated[idx].look = e.target.value
                                 setCharacters(updated)
                               }}
+                              rows={2}
                               placeholder="e.g., smiling, confident"
                               style={{
                                 background: 'var(--bg)',
                                 border: '1px solid var(--border)',
                                 borderRadius: '4px',
-                                padding: '0.3rem',
+                                padding: '0.35rem 0.4rem',
                                 color: 'var(--text)',
                                 fontSize: '0.85rem',
                                 width: '100%',
+                                minHeight: '2.6rem',
+                                maxHeight: '7rem',
+                                resize: 'vertical',
                               }}
                             />
                           </td>
                           <td style={{ padding: '0.5rem' }}>
-                            <input
-                              type="text"
+                            <textarea
                               value={char.outfit}
                               onChange={(e) => {
+                                autoSizeTextarea(e.currentTarget)
                                 const updated = [...characters]
                                 updated[idx].outfit = e.target.value
                                 setCharacters(updated)
                               }}
+                              rows={2}
                               placeholder="e.g., casual jeans"
                               style={{
                                 background: 'var(--bg)',
                                 border: '1px solid var(--border)',
                                 borderRadius: '4px',
-                                padding: '0.3rem',
+                                padding: '0.35rem 0.4rem',
                                 color: 'var(--text)',
                                 fontSize: '0.85rem',
                                 width: '100%',
+                                minHeight: '2.6rem',
+                                maxHeight: '7rem',
+                                resize: 'vertical',
                               }}
                             />
                           </td>
                           <td style={{ padding: '0.5rem' }}>
-                            <input
-                                type="text"
+                            <textarea
                               value={char.notes}
                               onChange={(e) => {
+                                autoSizeTextarea(e.currentTarget)
                                 const updated = [...characters]
                                 updated[idx].notes = e.target.value
                                 setCharacters(updated)
                               }}
+                              rows={2}
                               placeholder="Optional"
                               style={{
                                 background: 'var(--bg)',
                                 border: '1px solid var(--border)',
                                 borderRadius: '4px',
-                                padding: '0.3rem',
+                                padding: '0.35rem 0.4rem',
                                 color: 'var(--text)',
                                 fontSize: '0.85rem',
                                 width: '100%',
+                                minHeight: '2.6rem',
+                                maxHeight: '7rem',
+                                resize: 'vertical',
                               }}
                             />
                           </td>
