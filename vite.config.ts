@@ -1,3 +1,17 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
+
+/**
+ * Vite Configuration for Prompt Generator Studio
+ *
+ * Service Worker Caching Notes:
+ * - In production, the SW caches all assets for offline use
+ * - During development/preview, use hard refresh (Ctrl+Shift+R / Cmd+Shift+R)
+ *   or clear site data if UI changes don't appear
+ * - The SW uses 'autoUpdate' strategy to check for updates on page load
+ * - To fully disable SW: unregister via DevTools > Application > Service Workers
+ */
 export default defineConfig({
   base: "/prompt-generator-studio/",
   plugins: [
