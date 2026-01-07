@@ -121,3 +121,16 @@ export interface ImageDescription {
   createdAt: number
   updatedAt: number
 }
+
+export interface CreatedCharacter {
+  id: string
+  tag: string // Must start with @, unique, case-insensitive
+  name: string
+  look?: string
+  outfit?: string
+  appearsGuide?: string // Max 800 chars
+  cannotUseGuide?: string // Max 800 chars
+  notes?: string
+  createdAt: number
+  updatedAt: number
+}

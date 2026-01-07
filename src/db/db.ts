@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Prompt, PromptVersion, Settings, ImageAsset, ImageEdit, ImageDescription } from './types'
+import type { Prompt, PromptVersion, Settings, ImageAsset, ImageEdit, ImageDescription, CreatedCharacter } from './types'
 
 class PromptGeneratorDB extends Dexie {
   prompts!: Table<Prompt, string>
@@ -8,6 +8,7 @@ class PromptGeneratorDB extends Dexie {
   imageAssets!: Table<ImageAsset, string>
   imageEdits!: Table<ImageEdit, string>
   imageDescriptions!: Table<ImageDescription, string>
+  createdCharacters!: Table<CreatedCharacter, string>
 
   constructor() {
     super('pgs-db')
@@ -49,6 +50,15 @@ class PromptGeneratorDB extends Dexie {
       imageAssets: 'id, createdAt',
       imageEdits: 'id, imageId, createdAt, title, isFavorite, updatedAt',
       imageDescriptions: 'id, imageId, createdAt, title, isFavorite, updatedAt, focus',
+    })
+    this.version(5).stores({
+      prompts: 'id, platform, updatedAt',
+      promptVersions: 'id, promptId, createdAt',
+      settings: 'id',
+      imageAssets: 'id, createdAt',
+      imageEdits: 'id, imageId, createdAt, title, isFavorite, updatedAt',
+      imageDescriptions: 'id, imageId, createdAt, title, isFavorite, updatedAt, focus',
+      createdCharacters: 'id, tag, name, updatedAt',
     })
   }
 }

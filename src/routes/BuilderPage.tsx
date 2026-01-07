@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPrompt, getSettings, savePromptVersion, updateSettings } from '../db/repo'
 import ReleaseChecklistModal from '../components/ReleaseChecklistModal'
+import CharacterTypeahead from '../components/CharacterTypeahead'
+import CreatedCharactersPanel from '../components/CreatedCharactersPanel'
+import type { CreatedCharacter } from '../db/types'
 
 interface BuilderPageProps {
   dbReady: boolean
@@ -9,6 +12,7 @@ interface BuilderPageProps {
 
 interface Character {
   existing: boolean
+  tag: string // Add tag field for Created Character reference
   name: string
   look: string
   outfit: string
@@ -158,6 +162,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
   const [newPlatformNotes, setNewPlatformNotes] = useState('')
   const [previousPlatform, setPreviousPlatform] = useState('Sora 2')
   const [showChecklist, setShowChecklist] = useState(false)
+  const [characterTab, setCharacterTab] = useState<'manual' | 'library'>('manual')
   const modalRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -206,7 +211,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
     const newCharacters: Character[] = []
     for (let i = 0; i < numCharacters; i++) {
       newCharacters.push(
-        characters[i] || { existing: false, name: '', look: '', outfit: '', notes: '' }
+        characters[i] || { existing: false, tag: '', name: '', look: '', outfit: '', notes: '' }
       )
     }
     setCharacters(newCharacters)
@@ -356,6 +361,53 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
       colorPalette: '',
       constraints: '',
     })
+  }
+
+  const handleCreatedCharacterSelect = (character: CreatedCharacter, index: number) => {
+    const updated = [...characters]
+    updated[index] = {
+      existing: true,
+      tag: character.tag,
+      name: character.name,
+      look: character.look || '',
+      outfit: character.outfit || '',
+      notes: updated[index].notes, // Preserve any existing notes
+    }
+    setCharacters(updated)
+  }
+
+  const handleUseCreatedCharacterInBuilder = (character: CreatedCharacter) => {
+    // Add a new character slot if needed
+    if (numCharacters === 0) {
+      setNumCharacters(1)
+      // Wait for next tick to ensure character array is initialized
+      setTimeout(() => {
+        const updated = [...characters]
+        updated[0] = {
+          existing: true,
+          tag: character.tag,
+          name: character.name,
+          look: character.look || '',
+          outfit: character.outfit || '',
+          notes: '',
+        }
+        setCharacters(updated)
+      }, 0)
+    } else {
+      // Find first empty slot or add new
+      const emptyIndex = characters.findIndex((c) => !c.name.trim() && !c.tag.trim())
+      if (emptyIndex >= 0) {
+        handleCreatedCharacterSelect(character, emptyIndex)
+      } else if (numCharacters < 10) {
+        setNumCharacters(numCharacters + 1)
+        setTimeout(() => {
+          handleCreatedCharacterSelect(character, numCharacters)
+        }, 0)
+      }
+    }
+
+    // Switch to manual tab to show the populated character
+    setCharacterTab('manual')
   }
 
   const handlePlatformChange = (value: string) => {
@@ -1492,133 +1544,216 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                 background: 'var(--panel)',
               }}
             >
-              <legend style={{ fontSize: '0.85rem', opacity: 0.8, padding: '0 0.5rem' }}>
-                Character Details
-              </legend>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
-                        Existing?
-                      </th>
-                      <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
-                        Name
-                      </th>
-                      <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
-                        Look/Expressions
-                      </th>
-                      <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
-                        Outfit
-                      </th>
-                      <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
-                        Notes
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {characters.map((char, idx) => (
-                      <tr key={idx}>
-                        <td style={{ padding: '0.5rem' }}>
-                          <input
-                            type="checkbox"
-                            checked={char.existing}
-                            onChange={(e) => {
-                              const updated = [...characters]
-                              updated[idx].existing = e.target.checked
-                              setCharacters(updated)
-                            }}
-                          />
-                        </td>
-                        <td style={{ padding: '0.5rem' }}>
-                          <input
-                            type="text"
-                            value={char.name}
-                            onChange={(e) => {
-                              const updated = [...characters]
-                              updated[idx].name = e.target.value
-                              setCharacters(updated)
-                            }}
-                            placeholder={`Character ${idx + 1}`}
-                            style={{
-                              background: 'var(--bg)',
-                              border: '1px solid var(--border)',
-                              borderRadius: '4px',
-                              padding: '0.3rem',
-                              color: 'var(--text)',
-                              fontSize: '0.85rem',
-                              width: '100%',
-                            }}
-                          />
-                        </td>
-                        <td style={{ padding: '0.5rem' }}>
-                          <input
-                            type="text"
-                            value={char.look}
-                            onChange={(e) => {
-                              const updated = [...characters]
-                              updated[idx].look = e.target.value
-                              setCharacters(updated)
-                            }}
-                            placeholder="e.g., smiling, confident"
-                            style={{
-                              background: 'var(--bg)',
-                              border: '1px solid var(--border)',
-                              borderRadius: '4px',
-                              padding: '0.3rem',
-                              color: 'var(--text)',
-                              fontSize: '0.85rem',
-                              width: '100%',
-                            }}
-                          />
-                        </td>
-                        <td style={{ padding: '0.5rem' }}>
-                          <input
-                            type="text"
-                            value={char.outfit}
-                            onChange={(e) => {
-                              const updated = [...characters]
-                              updated[idx].outfit = e.target.value
-                              setCharacters(updated)
-                            }}
-                            placeholder="e.g., casual jeans"
-                            style={{
-                              background: 'var(--bg)',
-                              border: '1px solid var(--border)',
-                              borderRadius: '4px',
-                              padding: '0.3rem',
-                              color: 'var(--text)',
-                              fontSize: '0.85rem',
-                              width: '100%',
-                            }}
-                          />
-                        </td>
-                        <td style={{ padding: '0.5rem' }}>
-                          <input
-                            type="text"
-                            value={char.notes}
-                            onChange={(e) => {
-                              const updated = [...characters]
-                              updated[idx].notes = e.target.value
-                              setCharacters(updated)
-                            }}
-                            placeholder="Optional"
-                            style={{
-                              background: 'var(--bg)',
-                              border: '1px solid var(--border)',
-                              borderRadius: '4px',
-                              padding: '0.3rem',
-                              color: 'var(--text)',
-                              fontSize: '0.85rem',
-                              width: '100%',
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <legend style={{ fontSize: '0.85rem', opacity: 0.8, padding: '0 0.5rem', margin: 0 }}>
+                  Character Details
+                </legend>
+                <div style={{ display: 'flex', gap: '0.5rem', border: '1px solid var(--border)', borderRadius: '6px', padding: '2px' }}>
+                  <button
+                    onClick={() => setCharacterTab('manual')}
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      background: characterTab === 'manual' ? 'var(--accent)' : 'transparent',
+                      color: characterTab === 'manual' ? 'white' : 'var(--text)',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: characterTab === 'manual' ? 500 : 400,
+                    }}
+                  >
+                    Manual Entry
+                  </button>
+                  <button
+                    onClick={() => setCharacterTab('library')}
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      background: characterTab === 'library' ? 'var(--accent)' : 'transparent',
+                      color: characterTab === 'library' ? 'white' : 'var(--text)',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: characterTab === 'library' ? 500 : 400,
+                    }}
+                  >
+                    Created Characters
+                  </button>
+                </div>
               </div>
+
+              {characterTab === 'manual' ? (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
+                          Existing?
+                        </th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
+                          Tag
+                        </th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
+                          Name
+                        </th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
+                          Look/Expressions
+                        </th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
+                          Outfit
+                        </th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
+                          Notes
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {characters.map((char, idx) => (
+                        <tr key={idx}>
+                          <td style={{ padding: '0.5rem' }}>
+                            <input
+                              type="checkbox"
+                              checked={char.existing}
+                              onChange={(e) => {
+                                const updated = [...characters]
+                                updated[idx].existing = e.target.checked
+                                setCharacters(updated)
+                              }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.5rem' }}>
+                            {char.existing ? (
+                              <CharacterTypeahead
+                                value={char.tag}
+                                onChange={(value) => {
+                                  const updated = [...characters]
+                                  updated[idx].tag = value
+                                  setCharacters(updated)
+                                }}
+                                onSelect={(character) => handleCreatedCharacterSelect(character, idx)}
+                                placeholder="@tag"
+                              />
+                            ) : (
+                              <input
+                                type="text"
+                                value={char.tag}
+                                onChange={(e) => {
+                                  const updated = [...characters]
+                                  updated[idx].tag = e.target.value
+                                  setCharacters(updated)
+                                }}
+                                placeholder="@tag (optional)"
+                                disabled
+                                style={{
+                                  background: 'var(--bg)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: '4px',
+                                  padding: '0.3rem',
+                                  color: 'var(--text)',
+                                  fontSize: '0.85rem',
+                                  width: '100%',
+                                  opacity: 0.5,
+                                }}
+                              />
+                            )}
+                          </td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <input
+                              type="text"
+                              value={char.name}
+                              onChange={(e) => {
+                                const updated = [...characters]
+                                updated[idx].name = e.target.value
+                                setCharacters(updated)
+                              }}
+                              placeholder={`Character ${idx + 1}`}
+                              style={{
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '4px',
+                                padding: '0.3rem',
+                                color: 'var(--text)',
+                                fontSize: '0.85rem',
+                                width: '100%',
+                              }}
+                            />
+                            {char.existing && char.look && char.outfit && (
+                              <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '0.2rem' }}>
+                                Defaults: {char.look} | {char.outfit}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <input
+                              type="text"
+                              value={char.look}
+                              onChange={(e) => {
+                                const updated = [...characters]
+                                updated[idx].look = e.target.value
+                                setCharacters(updated)
+                              }}
+                              placeholder="e.g., smiling, confident"
+                              style={{
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '4px',
+                                padding: '0.3rem',
+                                color: 'var(--text)',
+                                fontSize: '0.85rem',
+                                width: '100%',
+                              }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <input
+                              type="text"
+                              value={char.outfit}
+                              onChange={(e) => {
+                                const updated = [...characters]
+                                updated[idx].outfit = e.target.value
+                                setCharacters(updated)
+                              }}
+                              placeholder="e.g., casual jeans"
+                              style={{
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '4px',
+                                padding: '0.3rem',
+                                color: 'var(--text)',
+                                fontSize: '0.85rem',
+                                width: '100%',
+                              }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <input
+                                type="text"
+                              value={char.notes}
+                              onChange={(e) => {
+                                const updated = [...characters]
+                                updated[idx].notes = e.target.value
+                                setCharacters(updated)
+                              }}
+                              placeholder="Optional"
+                              style={{
+                                background: 'var(--bg)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '4px',
+                                padding: '0.3rem',
+                                color: 'var(--text)',
+                                fontSize: '0.85rem',
+                                width: '100%',
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <CreatedCharactersPanel onUseInBuilder={handleUseCreatedCharacterInBuilder} />
+              )}
             </fieldset>
           )}
 

@@ -14,6 +14,7 @@ import {
   type ListImageDescriptionsParams,
 } from '../db/imageRepo'
 import type { ImageEdit, ImageDescription, ImageDescriptionFields } from '../db/types'
+import SaveCharacterModal from '../components/SaveCharacterModal'
 
 // Deterministic prompt variation generator
 function generatePromptVariations(instruction: string, count: number): string[] {
@@ -108,6 +109,9 @@ function ImageLabPage() {
   const [aiDescriptionError, setAiDescriptionError] = useState('')
   const [copiedAiDescription, setCopiedAiDescription] = useState(false)
   const [hasApiKey, setHasApiKey] = useState(false)
+
+  // Save Character modal state
+  const [showSaveCharacterModal, setShowSaveCharacterModal] = useState(false)
 
   useEffect(() => {
     refreshLibrary()
@@ -1273,6 +1277,22 @@ function ImageLabPage() {
                 >
                   {savingDescription ? '✓ Saved' : '💾 Save Description'}
                 </button>
+                <button
+                  onClick={() => setShowSaveCharacterModal(true)}
+                  disabled={!generatedDescription}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: generatedDescription ? 'var(--accent)' : 'var(--panel)',
+                    color: generatedDescription ? 'white' : 'var(--muted)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    cursor: generatedDescription ? 'pointer' : 'not-allowed',
+                    fontWeight: 500,
+                    opacity: generatedDescription ? 1 : 0.5,
+                  }}
+                >
+                  👤 Save as Character
+                </button>
               </div>
 
               {/* Generated Output */}
@@ -1791,6 +1811,14 @@ function ImageLabPage() {
           </section>
         )}
       </aside>
+
+      {/* Save Character Modal */}
+      {showSaveCharacterModal && (
+        <SaveCharacterModal
+          onClose={() => setShowSaveCharacterModal(false)}
+          defaultAppearsGuide={generatedDescription}
+        />
+      )}
     </div>
   )
 }
