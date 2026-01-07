@@ -179,23 +179,29 @@ export default function CreatedCharactersPanel({ onUseInBuilder }: CreatedCharac
               No characters yet
             </div>
           ) : (
-            characters.map((char) => (
-              <div
-                key={char.id}
-                onClick={() => handleEdit(char)}
-                style={{
-                  padding: '0.75rem',
-                  background: selectedChar?.id === char.id ? 'var(--accent)' : 'var(--bg)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  color: selectedChar?.id === char.id ? 'white' : 'var(--text)',
-                }}
-              >
-                <div style={{ fontWeight: 500, fontSize: '0.9rem' }}>{char.tag}</div>
-                <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>{char.name}</div>
-              </div>
-            ))
+            characters.map((char) => {
+              const isSelected = selectedChar?.id === char.id
+              return (
+                <button
+                  key={char.id}
+                  type="button"
+                  onClick={() => handleEdit(char)}
+                  className={isSelected ? 'created-character-item is-selected' : 'created-character-item'}
+                  style={{
+                    padding: '0.75rem',
+                    background: isSelected ? '#facc15' : 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    color: isSelected ? '#000' : 'var(--text)',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ fontWeight: 500, fontSize: '0.9rem' }}>{char.tag}</div>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.85 }}>{char.name}</div>
+                </button>
+              )
+            })
           )}
         </div>
       </div>

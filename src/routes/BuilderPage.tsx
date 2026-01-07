@@ -363,16 +363,27 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
     })
   }
 
+  const isDefaultName = (name: string, index: number): boolean => {
+    const trimmed = name.trim()
+    if (!trimmed) return true
+    const defaultLabel = `Character ${index + 1}`
+    return trimmed.toLowerCase() === defaultLabel.toLowerCase()
+  }
+
   const handleCreatedCharacterSelect = (character: CreatedCharacter, index: number) => {
     const updated = [...characters]
+    const current = updated[index] || { existing: true, tag: '', name: '', look: '', outfit: '', notes: '' }
+
     updated[index] = {
+      ...current,
       existing: true,
       tag: character.tag,
-      name: character.name,
-      look: character.look || '',
-      outfit: character.outfit || '',
-      notes: updated[index].notes, // Preserve any existing notes
+      name: isDefaultName(current.name, index) ? character.name : current.name,
+      look: current.look?.trim() ? current.look : character.look || '',
+      outfit: current.outfit?.trim() ? current.outfit : character.outfit || '',
+      notes: current.notes?.trim() ? current.notes : character.notes || '',
     }
+
     setCharacters(updated)
   }
 

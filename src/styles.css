@@ -216,6 +216,33 @@ select:focus-visible {
   overflow: hidden;
 }
 
+.created-character-item {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.created-character-item:hover:not(.is-selected),
+.created-character-item:focus-visible:not(.is-selected) {
+  background: rgba(125, 211, 252, 0.08);
+  border-color: rgba(125, 211, 252, 0.35);
+}
+
+.created-character-item.is-selected {
+  background: #facc15;
+  color: #111827;
+  border-color: #d97706;
+}
+
+.created-character-item.is-selected:hover,
+.created-character-item.is-selected:focus-visible {
+  background: #facc15;
+  color: #111827;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25);
+}
+
 @media (max-width: 720px) {
   .app-header {
     padding: 1.25rem 1.25rem;

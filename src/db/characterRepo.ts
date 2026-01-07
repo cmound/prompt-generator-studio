@@ -31,20 +31,49 @@ export async function getCharacterById(id: string): Promise<CreatedCharacter | u
   return db.createdCharacters.get(id)
 }
 
-export async function getCharacterByTag(tag: string): Promise<CreatedCharacter | undefined> {
+export async function getCharacterByTag(tag: string): Promise<CreatedCharacter | null> {
   const normalizedTag = tag.toLowerCase()
   const all = await db.createdCharacters.toArray()
-  return all.find((c) => c.tag.toLowerCase() === normalizedTag)
+  return all.find((c) => c.tag.toLowerCase() === normalizedTag) || null
 }
 
-export async function searchCharactersByTag(prefix: string): Promise<CreatedCharacter[]> {
-  const normalizedPrefix = prefix.toLowerCase()
+export async function searchCharacters(query: string): Promise<CreatedCharacter[]> {
+  const normalized = query.trim().toLowerCase()
+  if (!normalized) return []
+
+  const isTagQuery = normalized.startsWith('@')
+  const normalizedNameQuery = isTagQuery ? normalized.slice(1) : normalized
   const all = await db.createdCharacters.toArray()
-  return all
-    .filter((c) => c.tag.toLowerCase().startsWith(normalizedPrefix))
-    .sort((a, b) => a.tag.localeCompare(b.tag))
-    .slice(0, 10) // Limit autocomplete results
+
+  const ranked = all
+    .map((character) => {
+      const tag = character.tag.toLowerCase()
+      const name = character.name.toLowerCase()
+
+      const matchesTagPrefix = tag.startsWith(normalized)
+      const matchesTagContains = tag.includes(normalized)
+      const matchesName = normalizedNameQuery ? name.includes(normalizedNameQuery) : false
+
+      if (!matchesTagPrefix && !matchesTagContains && !matchesName) return null
+
+      // Prefer tag prefix, then name contains, then tag contains (or reversed if tag query)
+      let score = 3
+      if (matchesTagPrefix) score = 0
+      else if (isTagQuery && matchesTagContains) score = 1
+      else if (matchesName) score = 1
+      else score = 2
+
+      return { character, score }
+    })
+    .filter((entry): entry is { character: CreatedCharacter; score: number } => Boolean(entry))
+    .sort((a, b) => a.score - b.score || a.character.tag.localeCompare(b.character.tag))
+    .slice(0, 8)
+
+  return ranked.map((entry) => entry.character)
 }
+
+// Backward compatibility for older imports
+export const searchCharactersByTag = searchCharacters
 
 export async function upsertCharacter(
   character: Omit<CreatedCharacter, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CreatedCharacter } from '../db/types'
-import { searchCharactersByTag } from '../db/characterRepo'
+import { searchCharacters } from '../db/characterRepo'
 
 interface CharacterTypeaheadProps {
   value: string
@@ -25,18 +25,21 @@ export default function CharacterTypeahead({
 
   useEffect(() => {
     const loadSuggestions = async () => {
-      if (value.startsWith('@') && value.length > 1) {
-        const results = await searchCharactersByTag(value)
-        setSuggestions(results)
-        setShowSuggestions(results.length > 0)
-        setSelectedIndex(-1)
-      } else {
+      const query = value.trim()
+      if (query.length <= 1) {
         setSuggestions([])
         setShowSuggestions(false)
+        setSelectedIndex(-1)
+        return
       }
+
+      const results = await searchCharacters(query)
+      setSuggestions(results)
+      setShowSuggestions(results.length > 0)
+      setSelectedIndex(results.length ? 0 : -1)
     }
 
-    const debounce = setTimeout(loadSuggestions, 150)
+    const debounce = setTimeout(loadSuggestions, 200)
     return () => clearTimeout(debounce)
   }, [value])
 
@@ -62,7 +65,10 @@ export default function CharacterTypeahead({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev))
+        setSelectedIndex((prev) => {
+          if (prev < suggestions.length - 1) return prev + 1
+          return prev === -1 && suggestions.length > 0 ? 0 : prev
+        })
         break
       case 'ArrowUp':
         e.preventDefault()
@@ -74,6 +80,15 @@ export default function CharacterTypeahead({
           handleSelect(suggestions[selectedIndex])
         }
         break
+      case 'Tab':
+        if (suggestions.length > 0 && selectedIndex === -1) {
+          e.preventDefault()
+          setSelectedIndex(0)
+        } else if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+          // Allow Tab to move focus once a selection is already highlighted
+          setShowSuggestions(false)
+        }
+        break
       case 'Escape':
         e.preventDefault()
         setShowSuggestions(false)
@@ -83,6 +98,7 @@ export default function CharacterTypeahead({
   }
 
   const handleSelect = (character: CreatedCharacter) => {
+    onChange(character.tag)
     onSelect(character)
     setShowSuggestions(false)
     setSelectedIndex(-1)
@@ -143,16 +159,27 @@ export default function CharacterTypeahead({
               onClick={() => handleSelect(char)}
               onMouseEnter={() => setSelectedIndex(idx)}
               style={{
-                padding: '0.5rem',
+                padding: '0.55rem 0.6rem',
                 cursor: 'pointer',
                 background: idx === selectedIndex ? 'var(--accent)' : 'transparent',
                 color: idx === selectedIndex ? 'white' : 'var(--text)',
                 fontSize: '0.85rem',
                 borderBottom: idx < suggestions.length - 1 ? '1px solid var(--border)' : 'none',
+                display: 'grid',
+                gridTemplateColumns: '1fr',
+                gap: '0.15rem',
               }}
             >
-              <div style={{ fontWeight: 500 }}>{char.tag}</div>
-              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{char.name}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
+                <span style={{ fontWeight: 600 }}>{char.tag}</span>
+                <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>{char.name}</span>
+              </div>
+              {(char.look || char.outfit) && (
+                <div style={{ fontSize: '0.75rem', opacity: 0.65, display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                  {char.look && <span>{char.look}</span>}
+                  {char.outfit && <span style={{ opacity: 0.75 }}>• {char.outfit}</span>}
+                </div>
+              )}
             </div>
           ))}
         </div>
