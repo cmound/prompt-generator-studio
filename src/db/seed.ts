@@ -16,9 +16,16 @@ export async function ensureSeeded(): Promise<void> {
         durationSeconds: 15,
         realismPreset: 'Hyper-Realistic',
         frameType: 'Cinematic',
+        aiContentType: 'photoreal_cinematic_still',
         platform: 'Sora 2',
         maxChars: 2000,
         negativePromptDefault: DEFAULT_NEGATIVE,
+        outputFormat: 'paragraph',
+        audioOptions: {
+          music: { enabled: true, text: '' },
+          sfx: { enabled: true, text: '' },
+          vo: { enabled: true, text: '' },
+        },
         platformsCustom: [],
         negativeOptionsSelected: [],
       })
@@ -33,11 +40,49 @@ export async function ensureSeeded(): Promise<void> {
       if (!existing.frameType) {
         patch.frameType = 'Cinematic'
       }
+      if (!existing.aiContentType) {
+        patch.aiContentType = (existing.realismPreset || 'Hyper-Realistic') === 'Hyper-Realistic'
+          ? 'photoreal_cinematic_still'
+          : 'ai_generic'
+      }
       if (existing.platformsCustom === undefined) {
         patch.platformsCustom = []
       }
       if (existing.negativeOptionsSelected === undefined) {
         patch.negativeOptionsSelected = []
+      }
+      if (!existing.outputFormat) {
+        patch.outputFormat = 'paragraph'
+      }
+      if (!existing.audioOptions) {
+        if (typeof existing.includeAudio === 'boolean') {
+          const enabled = existing.includeAudio
+          patch.audioOptions = {
+            music: { enabled, text: '' },
+            sfx: { enabled, text: '' },
+            vo: { enabled, text: '' },
+          }
+        } else {
+          patch.audioOptions = {
+            music: { enabled: true, text: '' },
+            sfx: { enabled: true, text: '' },
+            vo: { enabled: true, text: '' },
+          }
+        }
+      } else {
+        // Migrate legacy boolean-only audioOptions to new shape
+        const ao: any = existing.audioOptions
+        if (
+          typeof ao.music === 'boolean' ||
+          typeof ao.sfx === 'boolean' ||
+          typeof ao.vo === 'boolean'
+        ) {
+          patch.audioOptions = {
+            music: { enabled: !!ao.music, text: '' },
+            sfx: { enabled: !!ao.sfx, text: '' },
+            vo: { enabled: !!ao.vo, text: '' },
+          }
+        }
       }
       if (Object.keys(patch).length > 0) {
         await db.settings.put({ ...existing, ...patch })

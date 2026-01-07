@@ -1,5 +1,5 @@
 import { db } from './db'
-import type { ImageAsset, ImageEdit } from './types'
+import type { ImageAsset, ImageEdit, ImageDescription, ImageDescriptionFields } from './types'
 
 export async function saveImageAsset(file: File): Promise<string> {
   const id = crypto.randomUUID()
@@ -29,10 +29,11 @@ export async function saveImageEdit(
   imageId: string,
   instruction: string,
   variations: number,
-  selectedVariantIndex: number
+  selectedVariantIndex: number,
+  prompts?: string[]
 ): Promise<string> {
   const id = crypto.randomUUID()
-  const prompts = generatePromptVariations(instruction, variations)
+  const generatedPrompts = prompts || generatePromptVariations(instruction, variations)
   const now = Date.now()
 
   const edit: ImageEdit = {
@@ -40,7 +41,7 @@ export async function saveImageEdit(
     imageId,
     instruction,
     variations,
-    prompts,
+    prompts: generatedPrompts,
     selectedVariantIndex,
     title: 'Untitled Edit',
     isFavorite: false,
@@ -98,7 +99,7 @@ export async function listImageEdits(params?: ListImageEditsParams): Promise<Ima
 
 export async function updateImageEdit(
   id: string,
-  patch: { title?: string; isFavorite?: boolean }
+  patch: { title?: string; isFavorite?: boolean; generatedPromptDescription?: string }
 ): Promise<void> {
   await db.imageEdits.update(id, {
     ...patch,
@@ -142,4 +143,108 @@ function generatePromptVariations(instruction: string, count: number): string[] 
   }
 
   return variations
+}
+
+// Image Description CRUD operations
+
+export async function createImageDescription(
+  imageId: string,
+  title: string,
+  focus: string,
+  notes: string,
+  fields: ImageDescriptionFields,
+  descriptionText: string,
+  negativeText: string
+): Promise<string> {
+  const id = crypto.randomUUID()
+  const now = Date.now()
+
+  const description: ImageDescription = {
+    id,
+    imageId,
+    title,
+    focus,
+    notes,
+    fields,
+    descriptionText,
+    negativeText,
+    isFavorite: false,
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await db.imageDescriptions.put(description)
+  return id
+}
+
+export interface ListImageDescriptionsParams {
+  imageId?: string
+  search?: string
+  favoritesOnly?: boolean
+  sort?: 'updatedDesc' | 'createdDesc' | 'titleAsc'
+}
+
+export async function listImageDescriptions(
+  params?: ListImageDescriptionsParams
+): Promise<ImageDescription[]> {
+  let collection = params?.imageId
+    ? db.imageDescriptions.where('imageId').equals(params.imageId)
+    : db.imageDescriptions.toCollection()
+
+  // Apply favorites filter
+  if (params?.favoritesOnly) {
+    collection = collection.filter((desc) => desc.isFavorite === true)
+  }
+
+  // Apply search filter
+  if (params?.search && params.search.trim()) {
+    const searchLower = params.search.toLowerCase()
+    collection = collection.filter((desc) => {
+      return (
+        desc.title.toLowerCase().includes(searchLower) ||
+        desc.notes.toLowerCase().includes(searchLower) ||
+        desc.descriptionText.toLowerCase().includes(searchLower)
+      )
+    })
+  }
+
+  let descriptions = await collection.toArray()
+
+  // Apply sort
+  const sort = params?.sort ?? 'updatedDesc'
+  if (sort === 'updatedDesc') {
+    descriptions.sort((a, b) => b.updatedAt - a.updatedAt)
+  } else if (sort === 'createdDesc') {
+    descriptions.sort((a, b) => b.createdAt - a.createdAt)
+  } else if (sort === 'titleAsc') {
+    descriptions.sort((a, b) => a.title.localeCompare(b.title))
+  }
+
+  return descriptions
+}
+
+export async function updateImageDescription(
+  id: string,
+  patch: {
+    title?: string
+    isFavorite?: boolean
+    focus?: string
+    notes?: string
+    fields?: ImageDescriptionFields
+    descriptionText?: string
+    negativeText?: string
+  }
+): Promise<void> {
+  await db.imageDescriptions.update(id, {
+    ...patch,
+    updatedAt: Date.now(),
+  })
+}
+
+export async function deleteImageDescription(id: string): Promise<void> {
+  await db.imageDescriptions.delete(id)
+}
+
+export async function getImageDescription(id: string): Promise<ImageDescription | undefined> {
+  return db.imageDescriptions.get(id)
 }

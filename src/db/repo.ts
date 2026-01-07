@@ -38,6 +38,15 @@ export async function savePromptVersion(
     frameType?: string
     durationSeconds?: number
     negativePrompt?: string
+    outputFormat?: 'paragraph' | 'timeline' | 'remix-paragraph' | 'remix-timeline'
+    blocksCount?: number
+    includeVO?: boolean
+    includeMusic?: boolean
+    includeSfx?: boolean
+    tone?: string
+    remixSourceLink?: string
+    remixSourceDesc?: string
+    remixIdea?: string
   }
 ): Promise<string> {
   const id = crypto.randomUUID()
@@ -60,6 +69,15 @@ export async function savePromptVersion(
     durationSeconds: meta?.durationSeconds,
     negativePrompt: meta?.negativePrompt,
     createdAt: Date.now(),
+    outputFormat: meta?.outputFormat,
+    blocksCount: meta?.blocksCount,
+    includeVO: meta?.includeVO,
+    includeMusic: meta?.includeMusic,
+    includeSfx: meta?.includeSfx,
+    tone: meta?.tone,
+    remixSourceLink: meta?.remixSourceLink,
+    remixSourceDesc: meta?.remixSourceDesc,
+    remixIdea: meta?.remixIdea,
   }
 
   await db.promptVersions.put(version)

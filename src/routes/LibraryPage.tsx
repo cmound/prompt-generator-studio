@@ -34,6 +34,7 @@ function LibraryPage() {
   const handleRestore = async (version: PromptVersion) => {
     setRestoring(version.id)
     try {
+      // Restore version with all fields including new output format fields
       await savePromptVersion(version.promptId, version.content, {
         charCount: version.charCount,
         riskScore: version.riskScore,
@@ -43,6 +44,15 @@ function LibraryPage() {
         frameType: version.frameType,
         durationSeconds: version.durationSeconds,
         negativePrompt: version.negativePrompt,
+        outputFormat: version.outputFormat,
+        blocksCount: version.blocksCount,
+        includeVO: version.includeVO,
+        includeMusic: version.includeMusic,
+        includeSfx: version.includeSfx,
+        tone: version.tone,
+        remixSourceLink: version.remixSourceLink,
+        remixSourceDesc: version.remixSourceDesc,
+        remixIdea: version.remixIdea,
       })
       await refreshVersions(version.promptId)
       await refreshPrompts()
