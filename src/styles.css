@@ -193,12 +193,13 @@ select:focus-visible {
 }
 
 .builder-form {
-  width: 100%;
-  max-width: 700px;
+  width: min(100% - 48px, 892px);
+  margin: 0 auto;
 }
 
 .builder-layout[data-show-output="true"] .builder-form {
-  max-width: none;
+  width: 100%;
+  margin: 0;
 }
 
 @media (min-width: 1100px) {

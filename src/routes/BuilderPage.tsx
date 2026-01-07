@@ -1562,8 +1562,8 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                 borderRadius: '8px',
                 padding: '0.75rem',
                 background: 'var(--panel)',
-                maxWidth: '1100px',
-                margin: '0 auto',
+                width: '100%',
+                maxWidth: '100%',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
@@ -1605,15 +1605,15 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
               </div>
 
               {characterTab === 'manual' ? (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '960px' }}>
+                <div style={{ overflowX: 'auto', width: '100%' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
                     <colgroup>
                       <col style={{ width: '80px' }} />
-                      <col style={{ width: '160px' }} />
-                      <col style={{ width: '180px' }} />
-                      <col style={{ width: '245px' }} />
-                      <col style={{ width: '225px' }} />
-                      <col style={{ width: '245px' }} />
+                      <col style={{ width: '140px' }} />
+                      <col style={{ minWidth: '140px' }} />
+                      <col style={{ minWidth: '180px' }} />
+                      <col style={{ minWidth: '160px' }} />
+                      <col style={{ minWidth: '180px' }} />
                     </colgroup>
                     <thead>
                       <tr>
