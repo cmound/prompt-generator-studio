@@ -10,6 +10,7 @@ interface CharacterTypeaheadProps {
   placeholder?: string
   disabled?: boolean
   existingEnabled?: boolean
+  isSelected?: boolean
 }
 
 export default function CharacterTypeahead({
@@ -19,6 +20,7 @@ export default function CharacterTypeahead({
   placeholder,
   disabled,
   existingEnabled = true,
+  isSelected = false,
 }: CharacterTypeaheadProps) {
   const [suggestions, setSuggestions] = useState<CreatedCharacter[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -117,8 +119,8 @@ export default function CharacterTypeahead({
           e.preventDefault()
           setSelectedIndex(0)
         } else if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
-          // Allow Tab to move focus once a selection is already highlighted
-          setShowSuggestions(false)
+          e.preventDefault()
+          handleSelect(suggestions[selectedIndex])
         }
         break
       case 'Escape':
@@ -168,8 +170,8 @@ export default function CharacterTypeahead({
                 style={{
                   padding: '0.55rem 0.6rem',
                   cursor: 'pointer',
-                  background: idx === selectedIndex ? 'var(--accent)' : 'transparent',
-                  color: idx === selectedIndex ? 'white' : 'var(--text)',
+                  background: idx === selectedIndex ? '#facc15' : 'transparent',
+                  color: idx === selectedIndex ? '#111827' : 'var(--text)',
                   fontSize: '0.85rem',
                   borderBottom: idx < suggestions.length - 1 ? '1px solid var(--border)' : 'none',
                   display: 'grid',
@@ -208,11 +210,11 @@ export default function CharacterTypeahead({
         placeholder={placeholder}
         disabled={disabled}
         style={{
-          background: 'var(--bg)',
-          border: '1px solid var(--border)',
+          background: isSelected ? '#facc15' : 'var(--bg)',
+          color: isSelected ? '#111827' : 'var(--text)',
+          border: isSelected ? '1px solid #d97706' : '1px solid var(--border)',
           borderRadius: '4px',
           padding: '0.3rem',
-          color: 'var(--text)',
           fontSize: '0.85rem',
           width: '100%',
         }}

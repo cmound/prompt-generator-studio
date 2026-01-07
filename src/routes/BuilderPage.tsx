@@ -1553,6 +1553,8 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                 borderRadius: '8px',
                 padding: '0.75rem',
                 background: 'var(--panel)',
+                maxWidth: '1100px',
+                margin: '0 auto',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
@@ -1595,7 +1597,15 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
 
               {characterTab === 'manual' ? (
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: '960px' }}>
+                    <colgroup>
+                      <col style={{ width: '80px' }} />
+                      <col style={{ width: '160px' }} />
+                      <col style={{ width: '180px' }} />
+                      <col style={{ width: '240px' }} />
+                      <col style={{ width: '220px' }} />
+                      <col style={{ width: '240px' }} />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th style={{ padding: '0.5rem', textAlign: 'left', fontSize: '0.8rem' }}>
@@ -1644,6 +1654,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                                 onSelect={(character) => handleCreatedCharacterSelect(character, idx)}
                                 placeholder="@tag"
                                 existingEnabled={char.existing}
+                                isSelected={char.existing && !!char.tag.trim()}
                               />
                             ) : (
                               <input
@@ -1689,11 +1700,6 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                                 width: '100%',
                               }}
                             />
-                            {char.existing && char.look && char.outfit && (
-                              <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '0.2rem' }}>
-                                Defaults: {char.look} | {char.outfit}
-                              </div>
-                            )}
                           </td>
                           <td style={{ padding: '0.5rem' }}>
                             <input
