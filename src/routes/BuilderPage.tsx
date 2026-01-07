@@ -1643,6 +1643,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                                 }}
                                 onSelect={(character) => handleCreatedCharacterSelect(character, idx)}
                                 placeholder="@tag"
+                                existingEnabled={char.existing}
                               />
                             ) : (
                               <input
