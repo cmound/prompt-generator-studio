@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPrompt, getSettings, savePromptVersion, updateSettings } from '../db/repo'
 import ReleaseChecklistModal from '../components/ReleaseChecklistModal'
 import CharacterTypeahead from '../components/CharacterTypeahead'
 import CreatedCharactersPanel from '../components/CreatedCharactersPanel'
 import type { CreatedCharacter } from '../db/types'
+import { assessContentRating } from '../utils/contentRating'
 
 interface BuilderPageProps {
   dbReady: boolean
@@ -17,6 +18,8 @@ interface Character {
   look: string
   outfit: string
   notes: string
+  appearsGuide?: string
+  cannotUseGuide?: string
 }
 
 const DEFAULT_NEGATIVE =
@@ -151,6 +154,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
   const [showOutput, setShowOutput] = useState(false)
   const [copiedPrompt, setCopiedPrompt] = useState(false)
   const [copiedNegative, setCopiedNegative] = useState(false)
+  const [showRatingDetails, setShowRatingDetails] = useState(false)
   const [saving, setSaving] = useState(false)
   const [currentPromptId, setCurrentPromptId] = useState<string | null>(null)
   const [lastSavedVersionId, setLastSavedVersionId] = useState<string | null>(null)
@@ -211,7 +215,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
     const newCharacters: Character[] = []
     for (let i = 0; i < numCharacters; i++) {
       newCharacters.push(
-        characters[i] || { existing: false, tag: '', name: '', look: '', outfit: '', notes: '' }
+        characters[i] || { existing: false, tag: '', name: '', look: '', outfit: '', notes: '', appearsGuide: '', cannotUseGuide: '' }
       )
     }
     setCharacters(newCharacters)
@@ -257,6 +261,34 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
       updateSettings({ elaborateFields }).catch(console.error)
     }
   }, [elaborateFields, dbReady])
+
+  const charactersText = useMemo(() => {
+    return characters
+      .map((char) =>
+        [char.tag, char.name, char.look, char.outfit, char.appearsGuide, char.cannotUseGuide, char.notes]
+          .filter((value) => value?.trim())
+          .join(' ')
+      )
+      .filter(Boolean)
+      .join(' | ')
+  }, [characters])
+
+  const ratingResult = useMemo(
+    () =>
+      assessContentRating({
+        prompt: generatedPrompt,
+        negative: negativePrompt,
+        charactersText,
+      }),
+    [generatedPrompt, negativePrompt, charactersText]
+  )
+
+  useEffect(() => {
+    setShowRatingDetails(false)
+  }, [generatedPrompt, showOutput])
+
+  const ratingDetailsId = 'content-rating-details'
+  const ratingComplianceId = 'content-rating-compliance'
 
   const allPlatforms = [...DEFAULT_PLATFORMS, ...customPlatforms.map((p) => p.name)]
 
@@ -372,7 +404,17 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
 
   const handleCreatedCharacterSelect = (character: CreatedCharacter, index: number) => {
     const updated = [...characters]
-    const current = updated[index] || { existing: true, tag: '', name: '', look: '', outfit: '', notes: '' }
+    const current =
+      updated[index] || {
+        existing: true,
+        tag: '',
+        name: '',
+        look: '',
+        outfit: '',
+        notes: '',
+        appearsGuide: '',
+        cannotUseGuide: '',
+      }
 
     updated[index] = {
       ...current,
@@ -382,6 +424,8 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
       look: current.look?.trim() ? current.look : character.look || '',
       outfit: current.outfit?.trim() ? current.outfit : character.outfit || '',
       notes: current.notes?.trim() ? current.notes : character.notes || '',
+      appearsGuide: current.appearsGuide?.trim() ? current.appearsGuide : character.appearsGuide || '',
+      cannotUseGuide: current.cannotUseGuide?.trim() ? current.cannotUseGuide : character.cannotUseGuide || '',
     }
 
     setCharacters(updated)
@@ -409,7 +453,9 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
           name: character.name,
           look: character.look || '',
           outfit: character.outfit || '',
-          notes: '',
+          notes: character.notes || '',
+          appearsGuide: character.appearsGuide || '',
+          cannotUseGuide: character.cannotUseGuide || '',
         }
         setCharacters(updated)
       }, 0)
@@ -1293,11 +1339,11 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                   fontSize: '0.9rem',
                 }}
               >
-                <option value="ai_generic">AI-generated (generic)</option>
-                <option value="stylized_3d_stopmotion">Stylized 3D, stop-motion / claymation</option>
+                <option value="photoreal_cinematic_still">Photorealistic cinematic still (movie frame)</option>
                 <option value="photoreal_cinematic_portrait">Photorealistic cinematic portrait</option>
                 <option value="photoreal_cinematic_horror">Photorealistic cinematic horror still</option>
-                <option value="photoreal_cinematic_still">Photorealistic cinematic still (movie frame)</option>
+                <option value="stylized_3d_stopmotion">Stylized 3D, stop-motion / claymation</option>
+                <option value="ai_generic">AI-generated (generic)</option>
               </select>
             </label>
 
@@ -2421,7 +2467,10 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
       {/* Output Panel */}
       {showOutput && (
         <aside className="builder-output">
-          <div className="placeholder" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div
+            className="placeholder"
+            style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Output</h2>
@@ -2495,12 +2544,148 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                   {generatedPrompt.length}
                   {characterCap && ` / ${formatNumber(Number(characterCap))}`}
                 </div>
+                <div style={{ marginTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
+                      <span style={{ opacity: 0.7, fontWeight: 500 }}>Content Rating:</span>
+                      <span aria-live="polite">{ratingResult.rating}/5</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowRatingDetails((open) => !open)}
+                      aria-haspopup="dialog"
+                      aria-expanded={showRatingDetails}
+                      aria-controls={ratingDetailsId}
+                      style={{
+                        padding: '0.35rem 0.65rem',
+                        background: 'var(--panel)',
+                        color: 'var(--text)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {showRatingDetails ? 'Hide details' : 'Show details'}
+                    </button>
+                  </div>
+                  {ratingResult.reason && (
+                    <div style={{ fontSize: '0.85rem', lineHeight: 1.4 }} aria-live="polite">
+                      {ratingResult.reason}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <div style={{ opacity: 0.7 }}>Negative chars</div>
                 <div style={{ fontWeight: 700 }}>{negativePrompt.length}</div>
               </div>
             </div>
+
+            {showRatingDetails && (
+              <div
+                id={ratingDetailsId}
+                role="dialog"
+                aria-modal="false"
+                aria-label="Content rating details"
+                aria-describedby={ratingComplianceId}
+                tabIndex={-1}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setShowRatingDetails(false)
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '4.5rem',
+                  right: '1rem',
+                  width: '360px',
+                  maxWidth: 'calc(100% - 2rem)',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '10px',
+                  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.25)',
+                  padding: '1rem',
+                  zIndex: 5,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                    <strong>Content Rating Details</strong>
+                    <span style={{ fontSize: '0.85rem', opacity: 0.75 }}>Local-only check. Press Esc or Close.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowRatingDetails(false)}
+                    style={{
+                      padding: '0.35rem 0.65rem',
+                      background: 'var(--panel)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <span style={{ fontWeight: 600 }}>Triggers matched</span>
+                  {ratingResult.categories.length ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {ratingResult.categories.map((cat) => (
+                        <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{cat}</span>
+                          <ul style={{ margin: 0, paddingLeft: '1.2rem', display: 'grid', gap: '0.2rem' }}>
+                            {ratingResult.matches[cat].map((term) => (
+                              <li key={term} style={{ fontSize: '0.9rem' }}>
+                                {term}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>No trigger words matched.</div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <span style={{ fontWeight: 600 }}>Suggested Rewrites</span>
+                  {ratingResult.suggestions.length ? (
+                    <ul style={{ margin: 0, paddingLeft: '1.2rem', display: 'grid', gap: '0.25rem' }}>
+                      {ratingResult.suggestions.map((tip) => (
+                        <li key={tip} style={{ fontSize: '0.9rem' }}>
+                          {tip}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>All clear—no rewrites needed.</div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <span style={{ fontWeight: 600 }}>Debug Loop</span>
+                  <ol style={{ margin: 0, paddingLeft: '1.2rem', display: 'grid', gap: '0.25rem', fontSize: '0.9rem' }}>
+                    <li>Simplify: remove adjectives</li>
+                    <li>Neutralize: swap charged words for film language</li>
+                    <li>De-identify: remove brands, celebrities, franchise names</li>
+                    <li>Rebuild: add detail back in small increments</li>
+                  </ol>
+                </div>
+
+                <div id={ratingComplianceId} style={{ fontSize: '0.85rem', opacity: 0.8 }}>
+                  Compliance check: No brands, no real people, no explicit content, no graphic harm.
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Generated Prompt</label>

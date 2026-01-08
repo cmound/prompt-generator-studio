@@ -3,11 +3,17 @@ import { useState, useEffect } from 'react'
 function SettingsPage() {
   const [apiKey, setApiKey] = useState('')
   const [saved, setSaved] = useState(false)
+  const [strictness, setStrictness] = useState<'Relaxed' | 'Standard' | 'Strict'>('Standard')
+  const [strictnessSaved, setStrictnessSaved] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem('openai_api_key')
     if (stored) {
       setApiKey(stored)
+    }
+    const storedStrictness = localStorage.getItem('pgs_content_strictness') as 'Relaxed' | 'Standard' | 'Strict' | null
+    if (storedStrictness === 'Relaxed' || storedStrictness === 'Strict' || storedStrictness === 'Standard') {
+      setStrictness(storedStrictness)
     }
   }, [])
 
@@ -15,6 +21,12 @@ function SettingsPage() {
     localStorage.setItem('openai_api_key', apiKey)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const handleStrictnessSave = () => {
+    localStorage.setItem('pgs_content_strictness', strictness)
+    setStrictnessSaved(true)
+    setTimeout(() => setStrictnessSaved(false), 2000)
   }
 
   const handleClear = () => {
@@ -98,6 +110,79 @@ function SettingsPage() {
             }}
           >
             Clear
+          </button>
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: 'var(--panel)',
+          border: '1px solid var(--border)',
+          borderRadius: '8px',
+          padding: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Content Rating Strictness</h2>
+        <p style={{ fontSize: '0.9rem', opacity: 0.75, margin: 0 }}>
+          Controls how strict the local content rating and rewrite assistant is. Relaxed, Standard, or Strict multiplies
+          trigger weights by 0.85 / 1.0 / 1.2. Stored only in your browser.
+        </p>
+
+        <label style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>Strictness</span>
+          <select
+            value={strictness}
+            onChange={(e) => setStrictness(e.target.value as 'Relaxed' | 'Standard' | 'Strict')}
+            style={{
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '0.6rem',
+              color: 'var(--text)',
+              fontSize: '0.9rem',
+            }}
+          >
+            <option value="Relaxed">Relaxed (0.85x)</option>
+            <option value="Standard">Standard (1.0x)</option>
+            <option value="Strict">Strict (1.2x)</option>
+          </select>
+        </label>
+
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            onClick={handleStrictnessSave}
+            style={{
+              padding: '0.6rem 1.2rem',
+              background: 'var(--accent)',
+              color: 'var(--bg)',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+            }}
+          >
+            {strictnessSaved ? '✓ Saved' : 'Save strictness'}
+          </button>
+          <button
+            onClick={() => {
+              setStrictness('Standard')
+              localStorage.setItem('pgs_content_strictness', 'Standard')
+            }}
+            style={{
+              padding: '0.6rem 1.2rem',
+              background: 'var(--panel)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+            }}
+          >
+            Reset to Standard
           </button>
         </div>
       </div>
