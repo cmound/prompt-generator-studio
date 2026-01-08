@@ -93,39 +93,6 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
     vo: { enabled: true, text: '' },
   }
 
-  const normalizeAudioOptions = (settingsAudio: any, legacyIncludeAudio?: boolean) => {
-    if (settingsAudio) {
-      const isBooleanShape = ['music', 'sfx', 'vo'].some((k) => typeof settingsAudio?.[k] === 'boolean')
-      if (isBooleanShape) {
-        return {
-          music: { enabled: !!settingsAudio.music, text: '' },
-          sfx: { enabled: !!settingsAudio.sfx, text: '' },
-          vo: { enabled: !!settingsAudio.vo, text: '' },
-        }
-      }
-      const isStructured = ['music', 'sfx', 'vo'].every(
-        (k) => settingsAudio?.[k]?.enabled !== undefined && settingsAudio?.[k]?.text !== undefined
-      )
-      if (isStructured) {
-        return {
-          music: { enabled: !!settingsAudio.music.enabled, text: settingsAudio.music.text || '' },
-          sfx: { enabled: !!settingsAudio.sfx.enabled, text: settingsAudio.sfx.text || '' },
-          vo: { enabled: !!settingsAudio.vo.enabled, text: settingsAudio.vo.text || '' },
-        }
-      }
-    }
-
-    if (typeof legacyIncludeAudio === 'boolean') {
-      return {
-        music: { enabled: legacyIncludeAudio, text: '' },
-        sfx: { enabled: legacyIncludeAudio, text: '' },
-        vo: { enabled: legacyIncludeAudio, text: '' },
-      }
-    }
-
-    return defaultAudioOptions
-  }
-
   const [outputFormat, setOutputFormat] = useState<'paragraph' | 'timeline' | 'remix-paragraph' | 'remix-timeline'>('paragraph')
   const [audioOptions, setAudioOptions] = useState<typeof defaultAudioOptions>(defaultAudioOptions)
   const [blocksCount, setBlocksCount] = useState(8)
@@ -173,34 +140,35 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
     if (dbReady) {
       getSettings()
         .then((settings) => {
-          setDuration(settings.durationSeconds)
-          setRealism(settings.realismPreset || 'Hyper-Realistic')
-          setFrameType(settings.frameType || 'Cinematic')
-          const resolvedAiContentType = settings.aiContentType || defaultAiContentType(settings.realismPreset || 'Hyper-Realistic')
-          setAiContentType(resolvedAiContentType)
-          if (!settings.aiContentType) {
-            updateSettings({ aiContentType: resolvedAiContentType }).catch(console.error)
-          }
-          setPlatform(settings.platform || 'Sora 2')
-          setMaxChars(settings.maxChars || 2000)
-            setOutputFormat(settings.outputFormat || 'paragraph')
-          const normalizedAudio = normalizeAudioOptions(settings.audioOptions, settings.includeAudio)
-          setAudioOptions(normalizedAudio)
-          updateSettings({ audioOptions: normalizedAudio }).catch(console.error)
+          // Only load defaults and custom platforms - do NOT load previous form state
           const defaultNeg = settings.negativePromptDefault || DEFAULT_NEGATIVE
           setBaseNegative(defaultNeg)
-          setSelectedNegativeOptions(settings.negativeOptionsSelected || [])
           setCustomPlatforms(settings.platformsCustom || [])
-          setPreviousPlatform(settings.platform || 'Sora 2')
-          if (settings.elaborateToCap !== undefined) {
-            setElaborateToCap(settings.elaborateToCap)
-          }
-          if (settings.elaborateFields) {
-            setElaborateFields(settings.elaborateFields)
-          }
           if (!settings.negativePromptDefault) {
             updateSettings({ negativePromptDefault: DEFAULT_NEGATIVE }).catch(console.error)
           }
+          // Keep form at defaults
+          setDuration(15)
+          setRealism('Hyper-Realistic')
+          setFrameType('Cinematic')
+          setAiContentType('photoreal_cinematic_still')
+          setPlatform('Sora 2')
+          setMaxChars(2000)
+          setCharacterCap(2000)
+          setOutputFormat('paragraph')
+          setAudioOptions(defaultAudioOptions)
+          setSelectedNegativeOptions([])
+          setElaborateToCap(false)
+          setElaborateFields({
+            setting: '',
+            timeOfDay: 'Day',
+            lighting: 'Natural',
+            mood: 'Neutral',
+            camera: 'Medium',
+            motionBeats: '',
+            colorPalette: '',
+            constraints: '',
+          })
           setLoading(false)
         })
         .catch((error) => {
@@ -249,18 +217,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
     setNegativePrompt(unique.join(', '))
   }, [baseNegative, selectedNegativeOptions])
 
-  // Save elaborate settings
-  useEffect(() => {
-    if (dbReady) {
-      updateSettings({ elaborateToCap }).catch(console.error)
-    }
-  }, [elaborateToCap, dbReady])
-
-  useEffect(() => {
-    if (dbReady) {
-      updateSettings({ elaborateFields }).catch(console.error)
-    }
-  }, [elaborateFields, dbReady])
+  // Do not persist elaborate settings - reset on refresh
 
   const charactersText = useMemo(() => {
     return characters
@@ -1255,7 +1212,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
             />
           </label>
 
-          {/* Platform, Duration, Realism, Frame Type */}
+          {/* Platform, Duration */}
           <div
             style={{
               display: 'grid',
@@ -1304,20 +1261,16 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                 }}
               />
             </label>
+          </div>
 
+          {/* Full-width controls */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
               <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Realism:</span>
               <select
                 value={realism}
                 onChange={(e) => setRealism(e.target.value)}
-                style={{
-                  background: 'var(--panel)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '0.5rem',
-                  color: 'var(--text)',
-                  fontSize: '0.9rem',
-                }}
+                className="pgs-field"
               >
                 {REALISM_OPTIONS.map((opt) => (
                   <option key={opt}>{opt}</option>
@@ -1330,14 +1283,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
               <select
                 value={aiContentType}
                 onChange={(e) => handleAiContentTypeChange(e.target.value)}
-                style={{
-                  background: 'var(--panel)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '0.5rem',
-                  color: 'var(--text)',
-                  fontSize: '0.9rem',
-                }}
+                className="pgs-field"
               >
                 <option value="photoreal_cinematic_still">Photorealistic cinematic still (movie frame)</option>
                 <option value="photoreal_cinematic_portrait">Photorealistic cinematic portrait</option>
@@ -1352,14 +1298,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
               <select
                 value={frameType}
                 onChange={(e) => setFrameType(e.target.value)}
-                style={{
-                  background: 'var(--panel)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '0.5rem',
-                  color: 'var(--text)',
-                  fontSize: '0.9rem',
-                }}
+                className="pgs-field"
               >
                 {FRAME_OPTIONS.map((opt) => (
                   <option key={opt}>{opt}</option>
@@ -1371,15 +1310,8 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
               <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Output Format:</span>
               <select
                 value={outputFormat}
-                  onChange={(e) => handleOutputFormatChange(e.target.value as typeof outputFormat)}
-                style={{
-                  background: 'var(--panel)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '0.5rem',
-                  color: 'var(--text)',
-                  fontSize: '0.9rem',
-                }}
+                onChange={(e) => handleOutputFormatChange(e.target.value as typeof outputFormat)}
+                className="pgs-field"
               >
                 <option value="paragraph">Cinematic Paragraph</option>
                 <option value="timeline">Timeline Script</option>
@@ -1405,7 +1337,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
               <h3 style={{ margin: 0, fontSize: '0.95rem', opacity: 0.9 }}>Audio Options</h3>
               <span style={{ fontSize: '0.8rem', opacity: 0.65 }}>Defaults on. Write 'silent' in the scene description to suppress all audio cues.</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {([
                 { key: 'music', label: 'Music (adds [MUSIC])', placeholder: 'e.g., tense cinematic underscore, synthwave, orchestral trailer' },
                 { key: 'sfx', label: 'Ambient / SFX (adds [SFX])', placeholder: 'e.g., ocean swell, footsteps, distant traffic, room tone' },
@@ -1413,14 +1345,14 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
               ] as const).map((row) => {
                 const opt = audioOptions[row.key]
                 return (
-                  <div key={row.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                  <div key={row.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', width: '100%' }}>
                     <input
                       type="checkbox"
                       checked={opt.enabled}
                       onChange={(e) => handleAudioOptionToggle(row.key, e.target.checked)}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: 'pointer', marginTop: '0.5rem', flexShrink: 0 }}
                     />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1, minWidth: 0 }}>
                       <span style={{ fontSize: '0.9rem' }}>{row.label}</span>
                       <input
                         type="text"
@@ -1428,13 +1360,8 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                         placeholder={row.placeholder}
                         onChange={(e) => handleAudioTextChange(row.key, e.target.value)}
                         disabled={!opt.enabled}
+                        className="pgs-field"
                         style={{
-                          background: 'var(--bg)',
-                          border: '1px solid var(--border)',
-                          borderRadius: '6px',
-                          padding: '0.5rem',
-                          color: 'var(--text)',
-                          fontSize: '0.9rem',
                           opacity: opt.enabled ? 1 : 0.5,
                         }}
                       />
@@ -1986,14 +1913,7 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
                         value={elaborateFields.setting}
                         onChange={(e) => setElaborateFields({ ...elaborateFields, setting: e.target.value })}
                         placeholder="e.g., Abandoned warehouse with rusted beams"
-                        style={{
-                          background: 'var(--panel)',
-                          border: '1px solid var(--border)',
-                          borderRadius: '8px',
-                          padding: '0.5rem',
-                          color: 'var(--text)',
-                          fontSize: '0.9rem',
-                        }}
+                        className="pgs-field"
                       />
                     </label>
 
@@ -2099,55 +2019,34 @@ function BuilderPage({ dbReady, dbError }: BuilderPageProps) {
 
                     <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                       <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Motion Beats:</span>
-                      <input
-                        type="text"
+                      <textarea
                         value={elaborateFields.motionBeats}
                         onChange={(e) => setElaborateFields({ ...elaborateFields, motionBeats: e.target.value })}
                         placeholder="e.g., Slow pan left, quick zoom, tracking shot"
-                        style={{
-                          background: 'var(--panel)',
-                          border: '1px solid var(--border)',
-                          borderRadius: '8px',
-                          padding: '0.5rem',
-                          color: 'var(--text)',
-                          fontSize: '0.9rem',
-                        }}
+                        className="pgs-field"
+                        rows={2}
                       />
                     </label>
 
                     <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                       <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Color Palette:</span>
-                      <input
-                        type="text"
+                      <textarea
                         value={elaborateFields.colorPalette}
                         onChange={(e) => setElaborateFields({ ...elaborateFields, colorPalette: e.target.value })}
                         placeholder="e.g., Desaturated blues and grays, warm orange accents"
-                        style={{
-                          background: 'var(--panel)',
-                          border: '1px solid var(--border)',
-                          borderRadius: '8px',
-                          padding: '0.5rem',
-                          color: 'var(--text)',
-                          fontSize: '0.9rem',
-                        }}
+                        className="pgs-field"
+                        rows={2}
                       />
                     </label>
 
                     <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                       <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Constraints:</span>
-                      <input
-                        type="text"
+                      <textarea
                         value={elaborateFields.constraints}
                         onChange={(e) => setElaborateFields({ ...elaborateFields, constraints: e.target.value })}
                         placeholder="e.g., No text overlay, maintain 16:9 ratio"
-                        style={{
-                          background: 'var(--panel)',
-                          border: '1px solid var(--border)',
-                          borderRadius: '8px',
-                          padding: '0.5rem',
-                          color: 'var(--text)',
-                          fontSize: '0.9rem',
-                        }}
+                        className="pgs-field"
+                        rows={2}
                       />
                     </label>
                   </div>
